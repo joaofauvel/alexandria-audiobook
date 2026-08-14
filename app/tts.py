@@ -469,6 +469,9 @@ class TTSEngine:
         If loading from local cache fails (e.g. incomplete snapshot), retries
         with the model ID so HF Hub can download any missing files.
         """
+        load_kwargs = dict(load_kwargs)
+        load_kwargs["attn_implementation"] = "flash_attention_2"
+
         local_path = TTSEngine._resolve_local_model_path(model_id)
         if local_path:
             print(f"  Loading from local cache: {local_path}")
