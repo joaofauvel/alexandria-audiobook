@@ -375,6 +375,8 @@ jobs:
         id: meta
         with:
           images: ghcr.io/${{ github.repository_owner }}/alexandria-audiobook
+          flavor: |
+            latest=false
           tags: |
             type=sha,prefix=sha-
             type=ref,event=tag
