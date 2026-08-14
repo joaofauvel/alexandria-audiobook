@@ -37,6 +37,7 @@
 - Create: `runpod/.env.example` — only the persistent data-root setting; public key is supplied at Pod creation, never committed.
 - Create: `runpod/README.md` — GHCR, Pod, volume, port, SSH-key, SCP, UI, and smoke-test instructions.
 - Create: `.github/workflows/runpod-image.yml` — manually/tag-triggered cached GHCR build.
+- Modify: `.gitignore` — allow the committed `runpod/.env.example` despite the repository's global dotfile ignore.
 - Do not modify: `install.js`, `start.js`, `torch.js`, `pinokio.js`, `pinokio.json`, existing `Dockerfile`, existing `docker-compose.yml`.
 
 ---
