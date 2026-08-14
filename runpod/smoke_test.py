@@ -66,7 +66,7 @@ def main():
     if not wavs or sample_rate <= 0:
         raise RuntimeError("Qwen generation returned no audio")
 
-    output_root = os.environ.get("ALEXANDRIA_DATA_ROOT", "/tmp")
+    output_root = os.environ.get("ALEXANDRIA_DATA_ROOT", "/workspace/alexandria")
     os.makedirs(output_root, exist_ok=True)
     output_path = os.path.join(output_root, "alexandria-smoke.wav")
     sf.write(output_path, wavs[0], sample_rate)

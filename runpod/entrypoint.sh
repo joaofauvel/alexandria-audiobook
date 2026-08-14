@@ -2,6 +2,7 @@
 set -eu
 
 DATA_ROOT="${ALEXANDRIA_DATA_ROOT:-/workspace/alexandria}"
+export ALEXANDRIA_DATA_ROOT="$DATA_ROOT"
 CONFIG_DIR="$DATA_ROOT/config"
 
 export ALEXANDRIA_CONFIG_PATH="${ALEXANDRIA_CONFIG_PATH:-$CONFIG_DIR/config.json}"

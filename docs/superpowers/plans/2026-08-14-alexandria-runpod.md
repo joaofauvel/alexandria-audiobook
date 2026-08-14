@@ -228,7 +228,7 @@ Keep dependency installation before all application source copies so source edit
 
 Create `runpod/entrypoint.sh` with `set -eu` and these exact behaviors:
 
-1. Set `DATA_ROOT=${ALEXANDRIA_DATA_ROOT:-/workspace/alexandria}`.
+1. Set `DATA_ROOT=${ALEXANDRIA_DATA_ROOT:-/workspace/alexandria}` and export the normalized `ALEXANDRIA_DATA_ROOT` so child processes use the same persistent path.
 2. Derive and export `ALEXANDRIA_CONFIG_PATH`, `HF_HOME`, `TRANSFORMERS_CACHE`, and `TORCHINDUCTOR_CACHE_DIR` beneath the persistent root unless explicitly supplied.
 3. Create directories for `config`, `uploads`, `scripts`, `designed_voices`, `clone_voices`, `lora_models`, `lora_datasets`, `dataset_builder`, `voicelines`, `preparer_output`, `logs`, `huggingface-cache`, and `torchinductor-cache`.
 4. Replace the corresponding empty image directories with symlinks into `DATA_ROOT`; also symlink root-level runtime files (`annotated_script.json`, `chunks.json`, `state.json`, `voice_config.json`, `cloned_audiobook.mp3`, `audiobook.m4b`, `audacity_export.zip`, and `m4b_cover.jpg`) into `DATA_ROOT` so existing application paths persist without an application-wide refactor.
@@ -300,7 +300,7 @@ wavs, sample_rate = model.generate_custom_voice(
     max_new_tokens=512,
 )
 assert wavs and sample_rate > 0
-output_root = os.environ.get("ALEXANDRIA_DATA_ROOT", "/tmp")
+output_root = os.environ.get("ALEXANDRIA_DATA_ROOT", "/workspace/alexandria")
 os.makedirs(output_root, exist_ok=True)
 output_path = os.path.join(output_root, "alexandria-smoke.wav")
 sf.write(output_path, wavs[0], sample_rate)
