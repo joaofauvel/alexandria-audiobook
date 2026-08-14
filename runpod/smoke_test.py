@@ -8,6 +8,16 @@ from qwen_tts import Qwen3TTSModel
 
 
 EXPECTED_ATTENTION = "flash_attention_2"
+DEFAULT_HF_HOME = "/workspace/.cache/huggingface"
+
+os.environ.setdefault("ALEXANDRIA_DATA_ROOT", "/workspace/alexandria")
+os.environ.setdefault("HF_HOME", DEFAULT_HF_HOME)
+os.environ.setdefault("HF_HUB_CACHE", os.path.join(os.environ["HF_HOME"], "hub"))
+os.environ.setdefault("TRANSFORMERS_CACHE", os.environ["HF_HUB_CACHE"])
+os.environ.setdefault(
+    "TORCHINDUCTOR_CACHE_DIR",
+    os.path.join(os.environ["ALEXANDRIA_DATA_ROOT"], "torchinductor-cache"),
+)
 
 
 def _effective_attention_implementation(model):

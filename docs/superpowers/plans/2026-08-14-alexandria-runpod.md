@@ -229,7 +229,7 @@ Keep dependency installation before all application source copies so source edit
 Create `runpod/entrypoint.sh` with `set -eu` and these exact behaviors:
 
 1. Set `DATA_ROOT=${ALEXANDRIA_DATA_ROOT:-/workspace/alexandria}` and export the normalized `ALEXANDRIA_DATA_ROOT` so child processes use the same persistent path.
-2. Derive and export `ALEXANDRIA_CONFIG_PATH`, `HF_HOME`, `TRANSFORMERS_CACHE`, and `TORCHINDUCTOR_CACHE_DIR` beneath the persistent root unless explicitly supplied.
+2. Derive and export `ALEXANDRIA_CONFIG_PATH`, `HF_HOME`, `HF_HUB_CACHE`, `TRANSFORMERS_CACHE`, and `TORCHINDUCTOR_CACHE_DIR` beneath the persistent root unless explicitly supplied; set `TRANSFORMERS_CACHE` to the hub cache, not the HF home root.
 3. Create directories for `config`, `uploads`, `scripts`, `designed_voices`, `clone_voices`, `lora_models`, `lora_datasets`, `dataset_builder`, `voicelines`, `preparer_output`, `logs`, `huggingface-cache`, and `torchinductor-cache`.
 4. Replace the corresponding empty image directories with symlinks into `DATA_ROOT`; also symlink root-level runtime files (`annotated_script.json`, `chunks.json`, `state.json`, `voice_config.json`, `cloned_audiobook.mp3`, `audiobook.m4b`, `audacity_export.zip`, and `m4b_cover.jpg`) into `DATA_ROOT` so existing application paths persist without an application-wide refactor.
 5. Copy `/alexandria/runpod/config.example.json` to the derived config path only when no persisted config exists.
@@ -272,6 +272,16 @@ Create `runpod/smoke_test.py` with runtime imports and one sentence. It must:
 
 ```python
 import os
+
+DEFAULT_HF_HOME = "/workspace/.cache/huggingface"
+os.environ.setdefault("ALEXANDRIA_DATA_ROOT", "/workspace/alexandria")
+os.environ.setdefault("HF_HOME", DEFAULT_HF_HOME)
+os.environ.setdefault("HF_HUB_CACHE", os.path.join(os.environ["HF_HOME"], "hub"))
+os.environ.setdefault("TRANSFORMERS_CACHE", os.environ["HF_HUB_CACHE"])
+os.environ.setdefault(
+    "TORCHINDUCTOR_CACHE_DIR",
+    os.path.join(os.environ["ALEXANDRIA_DATA_ROOT"], "torchinductor-cache"),
+)
 
 import soundfile as sf
 import torch
@@ -600,7 +610,7 @@ Record the generated output path and config path, restart the Pod, reconnect ove
 ssh -o IdentitiesOnly=yes -i "$HOME/.ssh/id_ed25519" -p "$SSH_PORT" \
   root@"$SSH_HOST" \
   'test -s /workspace/alexandria/config/config.json && \
-   test -d /workspace/alexandria/huggingface-cache && \
+   test -d /workspace/.cache/huggingface && \
    find /workspace/alexandria/voicelines -type f -size +0c | head -1'
 ```
 

@@ -10,7 +10,7 @@ This deployment is for the RunPod-specific fork branch. It leaves the existing P
 runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404
 ```
 
-That base supplies CUDA 12.8, PyTorch 2.8, Triton 3.4, `nvcc`, `uv`, FFmpeg, and SSH tooling. Alexandria does **not** install a second CUDA or PyTorch stack. Application dependencies and `flash-attn==2.8.3` are installed with `uv pip`; the Ubuntu base is externally managed, so the Dockerfile explicitly uses `--break-system-packages`.
+That base supplies CUDA 12.8, PyTorch 2.8, Triton 3.4, `nvcc`, `uv`, FFmpeg, SSH tooling, and a default `HF_HOME=/workspace/.cache/huggingface/`. Alexandria does **not** install a second CUDA or PyTorch stack. Application dependencies and `flash-attn==2.8.3` are installed with `uv pip`; the Ubuntu base is externally managed, so the Dockerfile explicitly uses `--break-system-packages`. The entrypoint preserves this explicit RunPod cache location, uses its `/hub` subdirectory for `HF_HUB_CACHE` and `TRANSFORMERS_CACHE`, and keeps it on the mounted `/workspace` volume.
 
 The image build checks Torch/CUDA, Triton, FlashAttention, and Qwen imports. The GPU-only smoke test also verifies that Qwen reports `flash_attention_2` and completes one Spanish CustomVoice generation.
 
@@ -186,6 +186,6 @@ ssh -o IdentitiesOnly=yes \
   -p "$SSH_PORT" \
   root@"$SSH_HOST" \
   'test -s /workspace/alexandria/config/config.json && \
-   test -d /workspace/alexandria/huggingface-cache && \
+   test -d /workspace/.cache/huggingface && \
    find /workspace/alexandria/voicelines -type f -size +0c | head -1'
 ```
