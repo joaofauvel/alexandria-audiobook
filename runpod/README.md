@@ -49,6 +49,39 @@ docker run --rm --runtime=nvidia \
   python /alexandria/runpod/smoke_test.py
 ```
 
+## Local data sync
+
+`runpod/sync_data.sh` keeps a local Alexandria directory canonical and transfers it with SSH/`rsync`. It never uses `--delete`; the Hugging Face cache is opt-in because it is several gigabytes.
+
+```bash
+# Use a stable local root with alexandria/ beneath it.
+export LOCAL_DATA="$HOME/.local/share/alexandria-audiobook/alexandria"
+
+# Copy local state/audio/configuration to a ready Pod.
+runpod/sync_data.sh push \
+  --host "$SSH_HOST" --port "$SSH_PORT" \
+  --local-data "$LOCAL_DATA"
+
+# Include the model cache only when needed.
+runpod/sync_data.sh push \
+  --host "$SSH_HOST" --port "$SSH_PORT" \
+  --local-data "$LOCAL_DATA" \
+  --local-cache "$HOME/.local/share/alexandria-audiobook/.cache/huggingface" \
+  --cache
+
+# Pull generated state/audio back to the local canonical copy.
+runpod/sync_data.sh pull \
+  --host "$SSH_HOST" --port "$SSH_PORT" \
+  --local-data "$LOCAL_DATA"
+
+# Preview a transfer without connecting.
+runpod/sync_data.sh push \
+  --host example.invalid --port 1234 \
+  --local-data "$LOCAL_DATA" --dry-run
+```
+
+Pass `--pod-id POD_ID` when `runpodctl ssh info` can resolve the Pod; explicit `--host` and `--port` are reliable for v2 Pods whose endpoints are shown by the RunPod API/UI. The helper also accepts `--local-root ROOT`, which maps to `ROOT/alexandria` and `ROOT/.cache/huggingface`.
+
 ## Publish to GHCR
 
 The workflow runs only on manual dispatch and version tags. It uses GitHub Actions cache for the dependency and FlashAttention layers:
