@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1.7
+FROM runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404@sha256:f46469f35597269c3e2a13866b86a12b0bd910b71008956da2c95440c59827e1
+
+WORKDIR /alexandria
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    MAX_JOBS=2 \
+    TORCH_CUDA_ARCH_LIST="8.6;8.9" \
+    ALEXANDRIA_HOST=0.0.0.0 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_CACHE_DIR=/root/.cache/uv
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      libsndfile1 \
+      openssh-server \
+      sox && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY app/requirements.txt /tmp/alexandria-requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --break-system-packages ninja packaging psutil && \
+    uv pip install --system --break-system-packages -r /tmp/alexandria-requirements.txt && \
+    uv pip install --system --break-system-packages qwen-tts==0.1.1 && \
+    uv pip install --system --break-system-packages flash-attn==2.8.3 --no-build-isolation
+
+RUN python - <<'PY'
+import flash_attn
+import torch
+import triton
+from qwen_tts import Qwen3TTSModel
+
+assert torch.__version__.startswith("2.8."), torch.__version__
+assert str(torch.version.cuda).startswith("12.8"), torch.version.cuda
+print(f"uv={__import__('subprocess').check_output(['uv', '--version'], text=True).strip()}")
+print(f"torch={torch.__version__}")
+print(f"cuda={torch.version.cuda}")
+print(f"triton={triton.__version__}")
+print(f"flash_attn={getattr(flash_attn, '__version__', 'installed')}")
+print(f"qwen_tts={Qwen3TTSModel.__module__}")
+PY
+
+COPY app/ /alexandria/app/
+COPY default_prompts.txt review_prompts.txt persona_prompts.txt /alexandria/
+COPY builtin_lora/ /alexandria/builtin_lora/
+COPY runpod/ /alexandria/runpod/
+
+RUN chmod 0755 /alexandria/runpod/entrypoint.sh && \
+    mkdir -p /alexandria/scripts \
+      /alexandria/designed_voices \
+      /alexandria/clone_voices \
+      /alexandria/lora_models \
+      /alexandria/lora_datasets \
+      /alexandria/dataset_builder \
+      /alexandria/app/uploads
+
+EXPOSE 4200 22
+ENTRYPOINT ["/alexandria/runpod/entrypoint.sh"]
+CMD ["python", "app/app.py"]

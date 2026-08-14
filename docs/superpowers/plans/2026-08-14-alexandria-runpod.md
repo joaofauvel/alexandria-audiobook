@@ -6,15 +6,15 @@
 
 **Architecture:** Keep the upstream/local Pinokio path untouched. Add a RunPod Dockerfile whose dependency layers are cached separately from application source, make `app/tts.py` force Qwen's `flash_attention_2` implementation, and use a startup entrypoint to persist Alexandria's existing runtime paths under `/workspace`. GitHub Actions publishes immutable GHCR images; a manually created RunPod Pod exposes the UI on HTTP 4200 and SSH on TCP 22.
 
-**Tech Stack:** Python 3.x, PyTorch 2.8 CUDA 12.8, `qwen-tts==0.1.1`, `flash-attn==2.8.3`, Triton matched to PyTorch, Docker BuildKit, GitHub Actions, GHCR, RunPod Pod, FastAPI/vanilla Alexandria UI, `runpodctl`, SSH/SCP.
+**Tech Stack:** RunPod's pinned `runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404` base (CUDA 12.8, PyTorch 2.8, Triton, `nvcc`, and `uv`), `qwen-tts==0.1.1`, `flash-attn==2.8.3`, Docker BuildKit, GitHub Actions, GHCR, RunPod Pod, FastAPI/vanilla Alexandria UI, `runpodctl`, SSH/SCP.
 
 **Spec:** `docs/superpowers/specs/2026-08-14-alexandria-runpod-design.md`
 
 ## Global Constraints
 
 - Keep local Pinokio scripts and the existing local Docker path unchanged.
-- The RunPod image uses PyTorch 2.8 CUDA 12.8 and a CUDA development image for FlashAttention compilation.
-- Install `qwen-tts==0.1.1` and `flash-attn==2.8.3`; compile FlashAttention with `--no-build-isolation`.
+- The RunPod image starts from the pinned official `runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404` image, which supplies CUDA 12.8, PyTorch 2.8, Triton, `nvcc`, and `uv`; do not install a second CUDA/PyTorch stack.
+- Install `qwen-tts==0.1.1` and `flash-attn==2.8.3` with `uv pip --system --break-system-packages`; compile FlashAttention with `--no-build-isolation` because the official Ubuntu base marks its system interpreter as externally managed.
 - Build with `MAX_JOBS=2` and `TORCH_CUDA_ARCH_LIST="8.6;8.9"`.
 - Every local Qwen model load must use `attn_implementation="flash_attention_2"`; no silent eager/SDPA fallback is allowed.
 - The RunPod Pod exposes `4200/http` and `22/tcp`, has a public IP for full SSH, and receives the exact registered public key as `PUBLIC_KEY`.
@@ -176,7 +176,7 @@ Create `Dockerfile.runpod` with these properties:
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
-FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel
+FROM runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404@sha256:f46469f35597269c3e2a13866b86a12b0bd910b71008956da2c95440c59827e1
 
 WORKDIR /alexandria
 
@@ -184,19 +184,23 @@ ENV DEBIAN_FRONTEND=noninteractive \
     MAX_JOBS=2 \
     TORCH_CUDA_ARCH_LIST="8.6;8.9" \
     ALEXANDRIA_HOST=0.0.0.0 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_CACHE_DIR=/root/.cache/uv
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ffmpeg libsndfile1 openssh-server && \
+      libsndfile1 \
+      openssh-server \
+      sox && \
     rm -rf /var/lib/apt/lists/*
 
 COPY app/requirements.txt /tmp/alexandria-requirements.txt
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install ninja packaging psutil && \
-    pip install -r /tmp/alexandria-requirements.txt && \
-    pip install qwen-tts==0.1.1 && \
-    pip install flash-attn==2.8.3 --no-build-isolation
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --break-system-packages ninja packaging psutil && \
+    uv pip install --system --break-system-packages -r /tmp/alexandria-requirements.txt && \
+    uv pip install --system --break-system-packages qwen-tts==0.1.1 && \
+    uv pip install --system --break-system-packages flash-attn==2.8.3 --no-build-isolation
 
 COPY app/ /alexandria/app/
 COPY default_prompts.txt review_prompts.txt persona_prompts.txt /alexandria/
@@ -217,7 +221,7 @@ ENTRYPOINT ["/alexandria/runpod/entrypoint.sh"]
 CMD ["python", "app/app.py"]
 ```
 
-Keep dependency installation before all application source copies so source edits reuse the expensive CUDA/FlashAttention layers. If the base image lacks a matching Triton package, install the exact Triton version reported by the PyTorch 2.8 base rather than an unrelated latest version; the build must print that version in its validation step.
+Keep dependency installation before all application source copies so source edits reuse the expensive FlashAttention/application dependency layers. The official RunPod base supplies the matching CUDA toolkit, PyTorch, Triton, and `uv`; the build must print their versions and must not replace them with pip-installed CUDA/PyTorch packages.
 
 - [ ] **Step 2: Add the entrypoint's persistent-path and SSH behavior**
 

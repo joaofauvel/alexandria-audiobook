@@ -1,0 +1,17 @@
+{
+  "llm": {
+    "base_url": "http://127.0.0.1:11434/v1",
+    "api_key": "local",
+    "model_name": "unused-for-single-speaker-poc"
+  },
+  "tts": {
+    "mode": "local",
+    "url": "http://127.0.0.1:7860",
+    "device": "auto",
+    "language": "Spanish",
+    "parallel_workers": 1,
+    "compile_codec": false,
+    "sub_batch_enabled": true,
+    "sub_batch_max_items": 0
+  }
+}
