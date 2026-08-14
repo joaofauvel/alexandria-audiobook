@@ -38,6 +38,17 @@ docker run --rm --entrypoint python alexandria-audiobook:runpod-test -c \
 
 The default entrypoint requires `PUBLIC_KEY`, so dependency-only checks override it with `--entrypoint python`.
 
+For a local GPU smoke test, pass the registered public key and use the NVIDIA runtime explicitly when Docker's `--gpus all` selects `runc` on the host:
+
+```bash
+export PUBLIC_KEY="$(cat "$HOME/.ssh/id_ed25519.pub")"
+docker run --rm --runtime=nvidia \
+  -e PUBLIC_KEY \
+  -v "$PWD/.runpod-local-workspace:/workspace" \
+  alexandria-audiobook:runpod-test \
+  python /alexandria/runpod/smoke_test.py
+```
+
 ## Publish to GHCR
 
 The workflow runs only on manual dispatch and version tags. It uses GitHub Actions cache for the dependency and FlashAttention layers:
@@ -95,6 +106,18 @@ PUBLIC_KEY: the exact contents of ~/.ssh/id_ed25519.pub
 A RunPod volume disk survives Pod stop/restart and is deleted with the Pod. Use a network volume instead when data must survive Pod deletion or move between Pods. The container disk is for the image and temporary OS files, not book data or model caches.
 
 The entrypoint creates `/workspace/alexandria`, persists Alexandria state and audio there, and starts SSH before Alexandria. It rejects startup when `PUBLIC_KEY` is missing, disables password authentication, and permits root login only with the supplied public key.
+
+## Verification record
+
+Local verification completed against `alexandria-audiobook:runpod-test`:
+
+- Pinned Torch 2.8.0+cu128, CUDA 12.8, Triton 3.4.0, FlashAttention 2.8.3, and Qwen TTS loaded on an RTX 4060.
+- The smoke test reported `attn_implementation=flash_attention_2` and generated Spanish audio in 6.16 seconds.
+- The API path passed Spanish configuration, TXT upload, single-speaker script generation, chunk audio, Audacity ZIP export, and M4B export.
+- Recreating the container with the same `/workspace` volume preserved config, script, audio, model cache, and exports; key-only SSH and SCP round-trip passed.
+- The published immutable image is `ghcr.io/joaofauvel/alexandria-audiobook:sha-fb5116a` with digest `sha256:380c0a2dc8468aee50705f596dd780575aa4f90c416faee2a0a2bfe2a9402c24`.
+
+A RunPod 3090 deployment was attempted with the authenticated GHCR credential and the final image, but the Pod remained `runtime=null` with `uptime=0` while waiting for host scheduling and was deleted to avoid idle billing. The existing 3090 POC Pod remains stopped (`EXITED`); no GPU Pod is currently running.
 
 ## SSH and SCP verification
 
